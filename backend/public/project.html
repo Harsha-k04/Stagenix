@@ -1,0 +1,36 @@
+<input type="file" id="imageInput" accept="image/*" />
+<button id="segmentBtn">Segment Image</button>
+<img id="segmentedResult" style="max-width: 100%; margin-top: 10px;" />
+<pre id="segmentationJSON"></pre>
+
+<script>
+const imageInput = document.getElementById("imageInput");
+const segmentBtn = document.getElementById("segmentBtn");
+const resultImg = document.getElementById("segmentedResult");
+const jsonOutput = document.getElementById("segmentationJSON");
+
+segmentBtn.addEventListener("click", async () => {
+  if (!imageInput.files[0]) return alert("Please select an image!");
+
+  const formData = new FormData();
+  formData.append("image", imageInput.files[0]);
+
+  try {
+    const res = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      body: formData
+    });
+    const data = await res.json();
+
+    // Display segmented image
+    resultImg.src = "http://localhost:5000" + data.segmented_image_url;
+
+    // Display JSON results
+    jsonOutput.textContent = JSON.stringify(data.json, null, 2);
+
+  } catch (err) {
+    console.error(err);
+    alert("Segmentation failed. Check console.");
+  }
+});
+</script>

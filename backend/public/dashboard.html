@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 220px;
+      background: #222;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .sidebar h2, .sidebar h3 { margin: 10px 0; }
+    #projectList {
+      list-style: none;
+      padding: 0;
+      margin: 5px 0 15px 0;
+      overflow-y: auto;
+      max-height: 300px;
+    }
+    #projectList li {
+      padding: 5px;
+      margin: 3px 0;
+      cursor: pointer;
+      background: #333;
+      border-radius: 4px;
+    }
+    #projectList li:hover { background: #555; }
+    #createProject {
+      margin-bottom: 10px;
+      padding: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background: #667eea;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Projects</h2>
+    <button id="createProject">+ New Project</button>
+    <h3>Recent Projects</h3>
+    <ul id="projectList"></ul>
+  </div>
+
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>

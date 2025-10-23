@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AR Stage (Preview + AR)</title>
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; background: #f0f0f0; }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px;
+      border-radius: 8px;
+      z-index: 10;
+    }
+    button, input { padding: 5px; margin: 3px; font-size: 14px; }
+    #hiroHint {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 5px;
+      border-radius: 6px;
+      display: none;
+    }
+    #hiroHint img {
+      width: 100px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <input type="text" id="prompt" placeholder="Enter stage prompt..." size="40">
+    <button id="generateBtn">Generate Stage</button>
+    <button id="toggleAR">Switch to AR Mode</button>
+  </div>
+
+  <div id="hiroHint">
+    <p style="margin:0; font-size:12px;">Point at this marker:</p>
+    <img src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/three.js/examples/marker-training/examples/pattern-files/hiro.png">
+  </div>
+
+  <div id="sceneContainer"></div>
+
+  <script>
+    const modelMap = {
+      "pottedplant": "assets/pottedplant/scene.glb",
+      "vase": "assets/vase/scene.glb"
+    };
+
+    let currentMode = "preview";
+    let sceneData = [];
+    let arObjects = null;
+
+    function clearScene() {
+      const container = document.getElementById("sceneContainer");
+      while (container.firstChild) container.removeChild(container.firstChild);
+      arObjects = null;
+    }
+
+    function createObjects(target) {
+      sceneData.forEach(obj => {
+        const entity = document.createElement("a-entity");
+        entity.setAttribute("gltf-model", `url(${obj.modelSrc})`);
+        entity.setAttribute("position", obj.position.join(" "));
+        entity.setAttribute("rotation", obj.rotation.join(" "));
+        entity.setAttribute("scale", "1 1 1");
+        target.appendChild(entity);
+      });
+    }
+
+    function loadPreviewScene() {
+      clearScene();
+      document.getElementById("hiroHint").style.display = "none";
+
+      const container = document.getElementById("sceneContainer");
+      container.innerHTML = `
+        <a-scene embedded>
+          <a-assets>
+            <a-asset-item id="pottedPlantModel" src="${modelMap.pottedplant}"></a-asset-item>
+            <a-asset-item id="vaseModel" src="${modelMap.vase}"></a-asset-item>
+          </a-assets>
+
+          <a-light type="ambient" intensity="1.2"></a-light>
+          <a-light type="directional" position="2 4 3" intensity="1"></a-light>
+          <a-sky color="#ECECEC"></a-sky>
+          <a-plane rotation="-90 0 0" width="10" height="10" color="#ccc"></a-plane>
+
+          <a-entity id="arObjects"></a-entity>
+          <a-entity camera position="0 1.6 3" look-controls></a-entity>
+        </a-scene>
+      `;
+
+      const scene = container.querySelector("a-scene");
+      scene.addEventListener("loaded", () => {
+        arObjects = document.getElementById("arObjects");
+        createObjects(arObjects);
+      });
+    }
+
+    function loadARScene() {
+      clearScene();
+      document.getElementById("hiroHint").style.display = "block";
+
+      const container = document.getElementById("sceneContainer");
+      container.innerHTML = `
+        <a-scene
+          vr-mode-ui="enabled: false"
+          embedded
+          arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+        >
+          <a-assets>
+            <a-asset-item id="pottedPlantModel" src="${modelMap.pottedplant}"></a-asset-item>
+            <a-asset-item id="vaseModel" src="${modelMap.vase}"></a-asset-item>
+          </a-assets>
+
+          <a-marker preset="hiro">
+            <a-entity id="arObjects"></a-entity>
+          </a-marker>
+
+          <a-entity camera></a-entity>
+        </a-scene>
+      `;
+
+      const scene = container.querySelector("a-scene");
+      scene.addEventListener("loaded", () => {
+        arObjects = document.getElementById("arObjects");
+        createObjects(arObjects);
+      });
+    }
+
+    async function generateScene(prompt) {
+      const formData = new FormData();
+      formData.append("prompt", prompt);
+
+      try {
+        const res = await fetch("http://127.0.0.1:5000/predict", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+        console.log("Response:", data);
+
+        sceneData = [];
+        if (!arObjects) return alert("Scene not ready yet.");
+
+        while (arObjects.firstChild) arObjects.removeChild(arObjects.firstChild);
+
+        data.objects.forEach(obj => {
+          const modelSrc = modelMap[obj.name];
+          if (!modelSrc) return;
+
+          const position = obj.position;
+          position[1] = 0.5;
+          const rotation = obj.rotation;
+
+          const entity = document.createElement("a-entity");
+          entity.setAttribute("gltf-model", `url(${modelSrc})`);
+          entity.setAttribute("position", position.join(" "));
+          entity.setAttribute("rotation", rotation.join(" "));
+          entity.setAttribute("scale", "1 1 1");
+          arObjects.appendChild(entity);
+
+          sceneData.push({ modelSrc, position, rotation });
+        });
+
+      } catch (err) {
+        console.error(err);
+        alert("Failed to connect to backend.");
+      }
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", () => {
+      const prompt = document.getElementById("prompt").value.trim();
+      if (!prompt) return alert("Enter a prompt first!");
+      generateScene(prompt);
+    });
+
+    document.getElementById("toggleAR").addEventListener("click", () => {
+      if (currentMode === "preview") {
+        currentMode = "ar";
+        loadARScene();
+        alert("Switched to AR Mode. Point your camera at the Hiro marker!");
+      } else {
+        currentMode = "preview";
+        loadPreviewScene();
+        alert("Back to 3D Preview Mode.");
+      }
+    });
+
+    // Start in Preview Mode
+    loadPreviewScene();
+  </script>
+</body>
+</html>
